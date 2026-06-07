@@ -34,3 +34,4 @@ esp-config       = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42f
 
 [build-dependencies]
 esp-config = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d", features = ["build"] }
+toml       = "0.8"

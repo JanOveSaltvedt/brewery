@@ -3,8 +3,8 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Sender
 use embassy_time::{Duration, Timer};
 use embedded_can::Frame as _;
 use esp_hal::{
-    Async,
     twai::{EspTwaiFrame, ExtendedId, TwaiRx, TwaiTx},
+    Async,
 };
 
 use crate::{SensorReading, SensorState};
@@ -39,10 +39,10 @@ pub async fn can_rx_task(
         let data = frame.data();
 
         let reading = match can_id.msg_type {
-            MSG_TYPE_TEMPERATURE => decode_float(data)
-                .map(|celsius| SensorReading::Temperature { node_id, celsius }),
-            MSG_TYPE_DENSITY => decode_float(data)
-                .map(|sg| SensorReading::Density { node_id, sg }),
+            MSG_TYPE_TEMPERATURE => {
+                decode_float(data).map(|celsius| SensorReading::Temperature { node_id, celsius })
+            }
+            MSG_TYPE_DENSITY => decode_float(data).map(|sg| SensorReading::Density { node_id, sg }),
             _ => None,
         };
 
@@ -65,7 +65,7 @@ pub async fn density_probe_task(mut tx: TwaiTx<'static, Async>, node_id: u8) {
     .to_u32();
 
     loop {
-        Timer::after(Duration::from_secs(5)).await;
+        Timer::after(Duration::from_secs(30)).await;
         if let Some(frame) = EspTwaiFrame::new(ExtendedId::new(raw_id).unwrap(), &probe_data) {
             if let Err(e) = tx.transmit_async(&frame).await {
                 log::warn!("CAN tx error probing node {}: {:?}", node_id, e);
@@ -83,7 +83,10 @@ pub async fn sensor_log_task(
     loop {
         let reading = receiver.receive().await;
         match reading {
-            SensorReading::Temperature { node_id: id, celsius } => {
+            SensorReading::Temperature {
+                node_id: id,
+                celsius,
+            } => {
                 log::info!("[density #{}] temp  = {:.2} °C", id, celsius);
             }
             SensorReading::Density { node_id: id, sg } => {
@@ -92,7 +95,10 @@ pub async fn sensor_log_task(
         }
         let mut s = state.lock().await;
         match reading {
-            SensorReading::Temperature { node_id: id, celsius } if id == node_id => {
+            SensorReading::Temperature {
+                node_id: id,
+                celsius,
+            } if id == node_id => {
                 s.temperature = Some(celsius);
             }
             SensorReading::Density { node_id: id, sg } if id == node_id => {

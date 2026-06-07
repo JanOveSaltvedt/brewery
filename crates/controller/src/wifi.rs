@@ -1,11 +1,15 @@
 use embassy_executor::Spawner;
-use embassy_net::{Runner, StackResources, tcp::TcpSocket};
+use embassy_net::{tcp::TcpSocket, Runner, StackResources};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
 use embassy_time::{Duration, Timer};
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{
-    Config as WifiConfig, ControllerConfig, Interface, WifiController,
+    scan::{ScanConfig, ScanTypeConfig},
     sta::StationConfig,
+    Config as WifiConfig,
+    ControllerConfig,
+    Interface,
+    WifiController,
 };
 use minimq::{Buffers, ConfigBuilder, Publication, Session, Will};
 use static_cell::StaticCell;
@@ -15,10 +19,14 @@ use crate::SensorState;
 const WIFI_SSID: &str = env!("BREWTECH_CONTROLLER_CONFIG_WIFI_SSID");
 const WIFI_PASSWORD: &str = env!("BREWTECH_CONTROLLER_CONFIG_WIFI_PASSWORD");
 const MQTT_HOST: &str = env!("BREWTECH_CONTROLLER_CONFIG_MQTT_HOST");
-const MQTT_PORT: u16 =
-    esp_config::esp_config_int!(u16, "BREWTECH_CONTROLLER_CONFIG_MQTT_PORT");
+const MQTT_PORT: u16 = esp_config::esp_config_int!(u16, "BREWTECH_CONTROLLER_CONFIG_MQTT_PORT");
 const MQTT_USERNAME: &str = env!("BREWTECH_CONTROLLER_CONFIG_MQTT_USERNAME");
 const MQTT_PASSWORD: &str = env!("BREWTECH_CONTROLLER_CONFIG_MQTT_PASSWORD");
+
+// Only attempt to connect when the best visible AP for our SSID is at least
+// this strong. Avoids thrashing against an AP that the network will immediately
+// kick us from due to BSS load-balancing.
+const MIN_CONNECT_RSSI: i8 = -70;
 
 const AVAIL_TOPIC: &str = "brewtech/available";
 const TEMP_TOPIC: &str = "brewtech/sensor/0/temperature";
@@ -66,12 +74,88 @@ async fn net_task(mut runner: Runner<'static, Interface>) {
 
 #[embassy_executor::task]
 async fn connection_task(mut controller: WifiController<'static>) {
+    // Passive scan: listen for beacons instead of sending probe requests.
+    // Android hotspots ignore broadcast probe requests (privacy), so active
+    // scan's 20 ms window misses them; 150 ms covers the 100 ms beacon
+    // interval with margin.
+    let passive = ScanTypeConfig::Passive(esp_hal::time::Duration::from_millis(150));
+    let mut attempt: u32 = 0;
     loop {
+        // Broad scan: discover all visible APs.
+        let broad_aps = match controller
+            .scan_async(&ScanConfig::default().with_scan_type(passive))
+            .await
+        {
+            Ok(aps) => aps,
+            Err(e) => {
+                log::warn!("wifi: scan failed: {:?}, retrying in 5s", e);
+                Timer::after(Duration::from_secs(5)).await;
+                continue;
+            }
+        };
+
+        for ap in &broad_aps {
+            log::info!(
+                "wifi: AP ssid='{}' bssid={:02x?} ch={} rssi={} dBm",
+                ap.ssid.as_str(),
+                ap.bssid,
+                ap.channel,
+                ap.signal_strength
+            );
+        }
+
+        // Find the strongest AP for our SSID.
+        let best = broad_aps
+            .iter()
+            .filter(|ap| ap.ssid.as_str() == WIFI_SSID)
+            .max_by_key(|ap| ap.signal_strength);
+
+        let (best_rssi, best_bssid, best_channel) = match best {
+            None => {
+                log::warn!("wifi: SSID '{}' not found, retrying in 15s", WIFI_SSID);
+                Timer::after(Duration::from_secs(15)).await;
+                continue;
+            }
+            Some(ap) => (ap.signal_strength, ap.bssid, ap.channel),
+        };
+        drop(broad_aps);
+
+        if best_rssi < MIN_CONNECT_RSSI {
+            log::warn!(
+                "wifi: best RSSI {} dBm < threshold {} dBm, retrying in 15s",
+                best_rssi, MIN_CONNECT_RSSI
+            );
+            Timer::after(Duration::from_secs(15)).await;
+            continue;
+        }
+
+        // Pin to the strongest AP's BSSID so the driver cannot fall back to a
+        // weaker AP on a different channel.
+        log::info!(
+            "wifi: pinning to bssid={:02x?} ch={} rssi={} dBm",
+            best_bssid, best_channel, best_rssi
+        );
+        if let Err(e) = controller.set_config(&WifiConfig::Station(
+            StationConfig::default()
+                .with_ssid(WIFI_SSID)
+                .with_password(WIFI_PASSWORD.into())
+                .with_bssid(best_bssid),
+        )) {
+            log::warn!("wifi: set_config failed: {:?}, retrying in 5s", e);
+            Timer::after(Duration::from_secs(5)).await;
+            continue;
+        }
+
+        attempt += 1;
+        log::info!("wifi: connecting (attempt #{})", attempt);
         match controller.connect_async().await {
             Ok(_) => {
+                log::info!("wifi: connected to AP");
                 controller.wait_for_disconnect_async().await.ok();
+                log::warn!("wifi: disconnected from AP, reconnecting...");
             }
-            Err(_) => {
+            Err(e) => {
+                log::warn!("wifi: connect failed (attempt #{}): {:?}", attempt, e);
                 Timer::after(Duration::from_secs(5)).await;
             }
         }
@@ -108,6 +192,11 @@ pub async fn wifi_task(
     spawner.spawn(net_task(runner).unwrap());
     spawner.spawn(connection_task(controller).unwrap());
 
+    log::info!(
+        "wifi: connecting to SSID '{}' with password '{}'",
+        WIFI_SSID,
+        WIFI_PASSWORD
+    );
     log::info!("wifi: waiting for IP...");
     stack.wait_config_up().await;
     log::info!("wifi: IP acquired");
@@ -167,9 +256,12 @@ pub async fn wifi_task(
 
         if session
             .publish(
-                Publication::new(HA_TEMP_DISCOVERY_TOPIC, HA_TEMP_DISCOVERY_PAYLOAD.as_bytes())
-                    .retain()
-                    .qos(minimq::QoS::AtLeastOnce),
+                Publication::new(
+                    HA_TEMP_DISCOVERY_TOPIC,
+                    HA_TEMP_DISCOVERY_PAYLOAD.as_bytes(),
+                )
+                .retain()
+                .qos(minimq::QoS::AtLeastOnce),
             )
             .await
             .is_err()

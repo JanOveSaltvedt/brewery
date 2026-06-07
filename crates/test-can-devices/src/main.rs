@@ -17,10 +17,10 @@ use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal}
 use embassy_time::{Duration, Ticker};
 use embedded_can::Frame as _;
 use esp_hal::{
-    Async,
     interrupt::software::SoftwareInterruptControl,
     timer::timg::TimerGroup,
     twai::{BaudRate, EspTwaiFrame, ExtendedId, TwaiConfiguration, TwaiMode, TwaiRx, TwaiTx},
+    Async,
 };
 use log::LevelFilter;
 
@@ -64,7 +64,10 @@ async fn main(spawner: Spawner) {
     spawner.spawn(sensor_rx_task(rx).unwrap());
     spawner.spawn(sensor_tx_task(tx).unwrap());
 
-    log::info!("test-can-devices ready — simulating density sensor @ node {}", OWN_NODE_ID);
+    log::info!(
+        "test-can-devices ready — simulating density sensor @ node {}",
+        OWN_NODE_ID
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -92,23 +95,30 @@ async fn sensor_rx_task(mut rx: TwaiRx<'static, Async>) {
             && can_id.secondary_node_id == OWN_NODE_ID
             && can_id.msg_type == MSG_TYPE_START_MEASUREMENT_CMD
         {
-            log::debug!("density probe received from node type {}", can_id.sender_node_type);
+            log::debug!(
+                "density probe received from node type {}",
+                can_id.sender_node_type
+            );
             DENSITY_REQUESTED.signal(());
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// TX: broadcast temperature on a 500 ms ticker; send density on request.
+// TX: broadcast temperature on a 5000 ms ticker; send density on request.
 // ---------------------------------------------------------------------------
 
 #[embassy_executor::task]
 async fn sensor_tx_task(mut tx: TwaiTx<'static, Async>) {
-    let mut ticker = Ticker::every(Duration::from_millis(500));
+    let mut ticker = Ticker::every(Duration::from_millis(5000));
     loop {
         match select(ticker.next(), DENSITY_REQUESTED.wait()).await {
-            Either::First(_) => send_measurement(&mut tx, MSG_TYPE_TEMPERATURE, SIMULATED_TEMP_C).await,
-            Either::Second(_) => send_measurement(&mut tx, MSG_TYPE_DENSITY, SIMULATED_DENSITY_SG).await,
+            Either::First(_) => {
+                send_measurement(&mut tx, MSG_TYPE_TEMPERATURE, SIMULATED_TEMP_C).await
+            }
+            Either::Second(_) => {
+                send_measurement(&mut tx, MSG_TYPE_DENSITY, SIMULATED_DENSITY_SG).await
+            }
         }
     }
 }

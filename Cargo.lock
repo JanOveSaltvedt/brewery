@@ -85,7 +85,7 @@ dependencies = [
  "esp-alloc",
  "esp-backtrace",
  "esp-bootloader-esp-idf",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d)",
  "esp-hal",
  "esp-println",
  "esp-radio",
@@ -94,6 +94,7 @@ dependencies = [
  "log",
  "minimq",
  "static_cell",
+ "toml",
 ]
 
 [[package]]
@@ -595,13 +596,13 @@ checksum = "877a4ace8713b0bcf2a4e7eec82529c029f1d0619886d18145fea96c3ffe5c0f"
 [[package]]
 name = "esp-alloc"
 version = "0.10.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "allocator-api2",
  "cfg-if",
  "document-features",
  "enumset",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-sync",
  "linked_list_allocator",
  "rlsf",
@@ -610,12 +611,12 @@ dependencies = [
 [[package]]
 name = "esp-backtrace"
 version = "0.19.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "cfg-if",
  "document-features",
- "esp-config",
- "esp-metadata-generated",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-println",
  "heapless 0.9.3",
  "riscv",
@@ -625,14 +626,14 @@ dependencies = [
 [[package]]
 name = "esp-bootloader-esp-idf"
 version = "0.5.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "cfg-if",
  "document-features",
  "embedded-storage",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-hal-procmacros",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-rom-sys",
  "jiff",
  "strum",
@@ -644,7 +645,19 @@ version = "0.7.0"
 source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
 dependencies = [
  "document-features",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d)",
+ "serde",
+ "serde_yaml",
+ "somni-expr",
+]
+
+[[package]]
+name = "esp-config"
+version = "0.7.0"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
+dependencies = [
+ "document-features",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "serde",
  "serde_yaml",
  "somni-expr",
@@ -653,7 +666,7 @@ dependencies = [
 [[package]]
 name = "esp-hal"
 version = "1.1.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "bitfield",
  "bitflags 2.13.0",
@@ -674,9 +687,9 @@ dependencies = [
  "embedded-io-async 0.6.1",
  "embedded-io-async 0.7.0",
  "enumset",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-hal-procmacros",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-riscv-rt",
  "esp-rom-sys",
  "esp-sync",
@@ -707,7 +720,7 @@ dependencies = [
 [[package]]
 name = "esp-hal-procmacros"
 version = "0.22.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "document-features",
  "proc-macro-crate",
@@ -723,16 +736,21 @@ version = "0.4.0"
 source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
 
 [[package]]
+name = "esp-metadata-generated"
+version = "0.4.0"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
+
+[[package]]
 name = "esp-phy"
 version = "0.2.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "cfg-if",
  "document-features",
  "embassy-sync 0.8.0",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-hal",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-sync",
  "esp-wifi-sys-esp32c3",
  "esp32c3",
@@ -742,10 +760,10 @@ dependencies = [
 [[package]]
 name = "esp-println"
 version = "0.17.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "document-features",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-sync",
  "log",
  "portable-atomic",
@@ -753,8 +771,8 @@ dependencies = [
 
 [[package]]
 name = "esp-radio"
-version = "0.18.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+version = "1.0.0-beta.0"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "allocator-api2",
  "cfg-if",
@@ -767,10 +785,10 @@ dependencies = [
  "embedded-io-async 0.6.1",
  "embedded-io-async 0.7.0",
  "enumset",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-hal",
  "esp-hal-procmacros",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-phy",
  "esp-radio-rtos-driver",
  "esp-rom-sys",
@@ -795,7 +813,7 @@ dependencies = [
 [[package]]
 name = "esp-radio-rtos-driver"
 version = "0.3.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "cfg-if",
  "esp-sync",
@@ -805,7 +823,7 @@ dependencies = [
 [[package]]
 name = "esp-riscv-rt"
 version = "0.14.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "document-features",
  "riscv",
@@ -815,18 +833,18 @@ dependencies = [
 [[package]]
 name = "esp-rom-sys"
 version = "0.1.4"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "cfg-if",
  "document-features",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp32c3",
 ]
 
 [[package]]
 name = "esp-rtos"
 version = "0.3.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "allocator-api2",
  "cfg-if",
@@ -836,10 +854,10 @@ dependencies = [
  "embassy-time-driver",
  "embassy-time-queue-utils",
  "esp-alloc",
- "esp-config",
+ "esp-config 0.7.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-hal",
  "esp-hal-procmacros",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "esp-radio-rtos-driver",
  "esp-rom-sys",
  "esp-sync",
@@ -851,14 +869,14 @@ dependencies = [
 [[package]]
 name = "esp-sync"
 version = "0.2.1"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "cfg-if",
  "document-features",
  "embassy-sync 0.6.2",
  "embassy-sync 0.7.2",
  "embassy-sync 0.8.0",
- "esp-metadata-generated",
+ "esp-metadata-generated 0.4.0 (git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85)",
  "riscv",
  "xtensa-lx",
 ]
@@ -973,7 +991,7 @@ dependencies = [
 [[package]]
 name = "esp32p4"
 version = "0.2.0"
-source = "git+https://github.com/esp-rs/esp-pacs?rev=0f4c316adbdbddb2479f50a5b931776b9655b23f#0f4c316adbdbddb2479f50a5b931776b9655b23f"
+source = "git+https://github.com/esp-rs/esp-pacs?rev=5a07030bbe72d57f82314a26ec42b7f93e03bd1d#5a07030bbe72d57f82314a26ec42b7f93e03bd1d"
 dependencies = [
  "critical-section",
  "vcell",
@@ -1388,7 +1406,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit",
+ "toml_edit 0.25.12+spec-1.1.0",
 ]
 
 [[package]]
@@ -1562,6 +1580,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "serde_spanned"
+version = "0.6.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -1762,6 +1789,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.8.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc1beb996b9d83529a9e75c17a1686767d148d70663143c7854d8b4a09ced362"
+dependencies = [
+ "serde",
+ "serde_spanned",
+ "toml_datetime 0.6.11",
+ "toml_edit 0.22.27",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "0.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "1.1.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1772,14 +1820,28 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
+version = "0.22.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_spanned",
+ "toml_datetime 0.6.11",
+ "toml_write",
+ "winnow 0.7.15",
+]
+
+[[package]]
+name = "toml_edit"
 version = "0.25.12+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2153edc6955a6c354fad8f5efd38b6a8769bdccf9fe50f8e1329f81b0baa5d7"
 dependencies = [
  "indexmap",
- "toml_datetime",
+ "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
- "winnow",
+ "winnow 1.0.3",
 ]
 
 [[package]]
@@ -1788,8 +1850,14 @@ version = "1.1.2+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
- "winnow",
+ "winnow 1.0.3",
 ]
+
+[[package]]
+name = "toml_write"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "tracing"
@@ -1941,6 +2009,15 @@ dependencies = [
 
 [[package]]
 name = "winnow"
+version = "0.7.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0592e1c9d151f854e6fd382574c3a0855250e1d9b2f99d9281c6e6391af352f1"
@@ -1951,7 +2028,7 @@ dependencies = [
 [[package]]
 name = "xtensa-lx"
 version = "0.13.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "critical-section",
 ]
@@ -1959,7 +2036,7 @@ dependencies = [
 [[package]]
 name = "xtensa-lx-rt"
 version = "0.22.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "document-features",
  "xtensa-lx",
@@ -1969,7 +2046,7 @@ dependencies = [
 [[package]]
 name = "xtensa-lx-rt-proc-macros"
 version = "0.5.0"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1979,4 +2056,4 @@ dependencies = [
 [[patch.unused]]
 name = "esp-metadata"
 version = "0.10.1"
-source = "git+https://github.com/esp-rs/esp-hal.git?rev=0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d#0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d"
+source = "git+https://github.com/JanOveSaltvedt/esp-hal.git?rev=98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85#98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85"

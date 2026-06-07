@@ -13,15 +13,15 @@ brewtech-core = { path = "crates/core" }
 # All pinned to the same monorepo commit so they are guaranteed compatible.
 # Chip feature (esp32c3 / esp32c6) is NOT set at workspace level — each crate
 # specifies its own chip so sim crates (C3) and main (C6) don't conflict.
-esp-hal = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-rtos = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d", features = ["embassy"] }
-esp-println  = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d", features = ["log-04"] }
-esp-backtrace = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d", features = ["panic-handler", "println"] }
-esp-bootloader-esp-idf = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
+esp-hal = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-rtos = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85", features = ["embassy"] }
+esp-println  = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85", features = ["log-04"] }
+esp-backtrace = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85", features = ["panic-handler", "println"] }
+esp-bootloader-esp-idf = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
 # esp-radio is the renamed esp-wifi; lives in the same monorepo as esp-hal.
 # default-features = false so each crate can opt in to chip + wifi features.
-esp-radio = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d", default-features = false }
-esp-alloc = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
+esp-radio = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85", default-features = false }
+esp-alloc = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
 
 # ── Embassy runtime ──────────────────────────────────────────────────────────
 # Pinned to a commit compatible with esp-rtos's embassy feature.
@@ -45,22 +45,22 @@ embassy-futures   = { git = "https://github.com/embassy-rs/embassy.git", rev = "
 # Redirect any crates.io pulls (from within esp-hal/embassy's own Cargo.tomls)
 # to the same pinned commits so the resolver never mixes sources.
 [patch.crates-io]
-esp-hal                = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-hal-procmacros     = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-rtos               = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-println            = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-backtrace          = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-bootloader-esp-idf = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-rom-sys            = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-riscv-rt           = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-sync               = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-config             = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-metadata           = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-metadata-generated = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-alloc              = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-radio              = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-radio-rtos-driver  = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
-esp-phy                = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
+esp-hal                = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-hal-procmacros     = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-rtos               = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-println            = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-backtrace          = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-bootloader-esp-idf = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-rom-sys            = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-riscv-rt           = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-sync               = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-config             = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-metadata           = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-metadata-generated = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-alloc              = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-radio              = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-radio-rtos-driver  = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
+esp-phy                = { git = "https://github.com/JanOveSaltvedt/esp-hal.git", rev = "98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85" }
 embassy-executor         = { git = "https://github.com/embassy-rs/embassy.git", rev = "414780f2f635594d0b9b0d343ed22dfcb69f70ef" }
 embassy-time             = { git = "https://github.com/embassy-rs/embassy.git", rev = "414780f2f635594d0b9b0d343ed22dfcb69f70ef" }
 embassy-sync             = { git = "https://github.com/embassy-rs/embassy.git", rev = "414780f2f635594d0b9b0d343ed22dfcb69f70ef" }
