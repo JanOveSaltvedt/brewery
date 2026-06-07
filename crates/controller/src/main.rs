@@ -3,16 +3,21 @@
 #![feature(impl_trait_in_assoc_type)]
 
 mod can_tasks;
+mod wifi;
 
 use can_tasks::{can_rx_task, density_probe_task, sensor_log_task};
+
+const SENSOR_NODE_ID: u8 =
+    esp_config::esp_config_int!(u8, "BREWTECH_CONTROLLER_CONFIG_SENSOR_NODE_ID");
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, mutex::Mutex};
 use esp_hal::{
     interrupt::software::SoftwareInterruptControl,
     timer::timg::TimerGroup,
     twai::{BaudRate, TwaiConfiguration, TwaiMode},
 };
 use log::LevelFilter;
+use static_cell::StaticCell;
 
 use esp_backtrace as _;
 
@@ -31,6 +36,17 @@ pub enum SensorReading {
 static READINGS: Channel<CriticalSectionRawMutex, SensorReading, 16> = Channel::new();
 
 // ---------------------------------------------------------------------------
+// Shared sensor state (node 0 only) — updated by sensor_log_task, read by wifi_task.
+// ---------------------------------------------------------------------------
+
+pub struct SensorState {
+    pub temperature: Option<f32>,
+    pub density: Option<f32>,
+}
+
+static SENSOR_STATE: StaticCell<Mutex<CriticalSectionRawMutex, SensorState>> = StaticCell::new();
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -40,9 +56,16 @@ async fn main(spawner: Spawner) {
 
     let p = esp_hal::init(esp_hal::Config::default());
 
+    esp_alloc::heap_allocator!(size: 72 * 1024);
+
     let sw_int = SoftwareInterruptControl::new(p.SW_INTERRUPT);
     let timg0 = TimerGroup::new(p.TIMG0);
     esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
+
+    let sensor_state = SENSOR_STATE.init(Mutex::new(SensorState {
+        temperature: None,
+        density: None,
+    }));
 
     // GPIO0 = CRX (transceiver RX → MCU), GPIO1 = CTX (MCU TX → transceiver).
     let twai = TwaiConfiguration::new(
@@ -57,9 +80,10 @@ async fn main(spawner: Spawner) {
 
     let (rx, tx) = twai.split();
 
-    spawner.spawn(can_rx_task(rx, READINGS.sender()).unwrap());
-    spawner.spawn(density_probe_task(tx).unwrap());
-    spawner.spawn(sensor_log_task(READINGS.receiver()).unwrap());
+    spawner.spawn(can_rx_task(rx, READINGS.sender(), SENSOR_NODE_ID).unwrap());
+    spawner.spawn(density_probe_task(tx, SENSOR_NODE_ID).unwrap());
+    spawner.spawn(sensor_log_task(READINGS.receiver(), sensor_state, SENSOR_NODE_ID).unwrap());
+    spawner.spawn(wifi::wifi_task(p.WIFI, spawner, sensor_state).unwrap());
 
     log::info!("controller ready — listening for density sensors");
 }

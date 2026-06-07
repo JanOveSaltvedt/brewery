@@ -13,7 +13,7 @@ path = "src/main.rs"
 [dependencies]
 brewtech-core      = { workspace = true }
 esp-hal          = { workspace = true, features = ["esp32c3", "unstable"] }
-esp-rtos         = { workspace = true, features = ["esp32c3"] }
+esp-rtos         = { workspace = true, features = ["esp32c3", "esp-radio", "esp-alloc"] }
 esp-println      = { workspace = true, features = ["esp32c3"] }
 esp-backtrace    = { workspace = true, features = ["esp32c3"] }
 esp-bootloader-esp-idf = { workspace = true, features = ["esp32c3"] }
@@ -25,3 +25,12 @@ heapless         = { workspace = true }
 static_cell      = { workspace = true }
 critical-section = { workspace = true }
 embedded-can     = { workspace = true }
+esp-radio        = { workspace = true, features = ["esp32c3", "wifi", "log-04", "unstable"] }
+esp-alloc        = { workspace = true }
+embassy-net      = { workspace = true }
+embassy-futures  = { workspace = true }
+minimq           = { workspace = true }
+esp-config       = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d" }
+
+[build-dependencies]
+esp-config = { git = "https://github.com/esp-rs/esp-hal.git", rev = "0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d", features = ["build"] }

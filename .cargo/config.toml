@@ -1,0 +1,12 @@
+[alias]
+run-controller  = ["espflash", "flash", "--monitor", "--release", "--target", "riscv32imc-unknown-none-elf", "--package", "brewtech-controller"]
+run-test-devices  = ["espflash", "flash", "--monitor", "--release", "--target", "riscv32imc-unknown-none-elf", "--package", "test-can-devices"]
+
+[build]
+target = "riscv32imc-unknown-none-elf"
+
+[target.riscv32imc-unknown-none-elf]
+runner = "espflash flash --monitor"
+rustflags = [
+    "-C", "link-arg=-Tlinkall.x",
+]

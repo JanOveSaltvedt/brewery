@@ -1,13 +1,13 @@
 # brewtech
 
-Embedded Rust workspace for an ESP32-C3 that reads BrewTools density/temperature sensors over a CAN bus.
+Embedded Rust workspace for an ESP32-C3 that reads BrewTools density/temperature sensors over a CAN bus and publishes readings to MQTT over WiFi.
 
 ## Architecture
 
 ```
 crates/
   core/              # no_std library shared by all firmware crates
-  controller/        # main firmware: listens + probes sensors
+  controller/        # main firmware: listens + probes sensors, publishes to MQTT
   test-can-devices/  # test bench: fakes a density sensor on a second ESP32-C3
 ```
 
@@ -21,15 +21,48 @@ Add new shared protocol logic here; keep it free of esp-hal types.
 
 ### `crates/controller` — main firmware
 
-Three Embassy async tasks:
+Six Embassy async tasks:
 
 | Task | File | Role |
 |---|---|---|
-| `can_rx_task` | `src/can_tasks.rs` | Receives frames, dispatches temperature and density readings into a channel |
+| `can_rx_task` | `src/can_tasks.rs` | Receives CAN frames, dispatches temperature and density readings into a channel |
 | `density_probe_task` | `src/can_tasks.rs` | Every 5 s sends `MSG_TYPE_START_MEASUREMENT_CMD` to all 8 node IDs |
-| `sensor_log_task` | `src/can_tasks.rs` | Drains the channel and logs readings via `log::info!` |
+| `sensor_log_task` | `src/can_tasks.rs` | Drains the channel, logs readings, updates shared `SensorState` (node 0 only) |
+| `connection_task` | `src/wifi.rs` | Manages WiFi reconnection with 5 s backoff |
+| `net_task` | `src/wifi.rs` | Drives embassy-net's internal event loop |
+| `wifi_task` | `src/wifi.rs` | Connects to MQTT broker, publishes sensor readings and HA discovery messages |
+
+**Shared state:** `SensorState { temperature: Option<f32>, density: Option<f32> }` is a static `Mutex` updated by `sensor_log_task` and polled by `wifi_task`. Only node 0 is tracked.
 
 `SensorReading` enum and the static `READINGS` channel are defined in `src/main.rs`.
+
+#### MQTT topics
+
+| Topic | Content |
+|---|---|
+| `brewtech/available` | `online` / `offline` (LWT) |
+| `brewtech/sensor/0/temperature` | float string, e.g. `"20.50"` (°C) |
+| `brewtech/sensor/0/density` | float string, e.g. `"1.0450"` (SG) |
+| `homeassistant/sensor/brewtech_0_temperature/config` | HA discovery payload (retained) |
+| `homeassistant/sensor/brewtech_0_density/config` | HA discovery payload (retained) |
+
+Discovery messages are published retained on every MQTT connect, so Home Assistant auto-discovers the sensors without manual configuration.
+
+#### Configuration
+
+WiFi and MQTT credentials live in `crates/controller/cfg.toml` — **not checked into git**. Copy and edit this file on each new machine:
+
+```toml
+[brewtech-controller]
+wifi-ssid      = "YourSSID"
+wifi-password  = "YourPassword"
+mqtt-host      = "192.168.1.100"
+mqtt-port      = 1883
+mqtt-username  = ""        # leave empty for unauthenticated
+mqtt-password  = ""
+```
+
+The build script (`build.rs`) reads `cfg.toml` via `esp-config` and injects values as `BREWTECH_CONTROLLER_CONFIG_*` env vars at compile time. The schema is defined in `esp_config.yml`.
 
 ### `crates/test-can-devices` — test bench firmware
 
@@ -66,8 +99,8 @@ Message data: byte 0 is a sub-index; bytes 1–4 carry a float (little-endian) o
 All esp-hal and embassy crates are **git-pinned** to specific commits in `Cargo.toml`. Do not change those revisions independently — they must stay in sync. The `[patch.crates-io]` section redirects any transitive crates.io pulls to the same pinned commits.
 
 Key pins:
-- esp-hal / esp-rtos / esp-println / esp-backtrace: `0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d`
-- embassy-executor / embassy-time / embassy-sync / embassy-futures: `414780f2f635594d0b9b0d343ed22dfcb69f70ef`
+- esp-hal / esp-rtos / esp-println / esp-backtrace / esp-radio / esp-alloc / esp-config: `0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d`
+- embassy-executor / embassy-time / embassy-sync / embassy-net / embassy-futures: `414780f2f635594d0b9b0d343ed22dfcb69f70ef`
 
 ## Building & Flashing
 

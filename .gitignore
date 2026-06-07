@@ -1,4 +1,5 @@
 .*
 !.gitignore
-.cargo
+!.cargo
 target/
+cfg.toml

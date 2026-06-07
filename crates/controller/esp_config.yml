@@ -1,0 +1,37 @@
+crate: brewtech-controller
+
+options:
+  - name: wifi-ssid
+    description: "WiFi access point SSID"
+    default:
+      - value: '""'
+
+  - name: wifi-password
+    description: "WiFi access point password"
+    default:
+      - value: '""'
+
+  - name: mqtt-host
+    description: "MQTT broker IPv4 address (dotted-decimal, e.g. 192.168.1.100)"
+    default:
+      - value: '"192.168.1.1"'
+
+  - name: mqtt-port
+    description: "MQTT broker port"
+    default:
+      - value: 1883
+
+  - name: mqtt-username
+    description: "MQTT broker username (leave empty for unauthenticated)"
+    default:
+      - value: '""'
+
+  - name: mqtt-password
+    description: "MQTT broker password"
+    default:
+      - value: '""'
+
+  - name: sensor-node-id
+    description: "BrewTools density sensor secondary node ID (0–7)"
+    default:
+      - value: 0
