@@ -1,0 +1,27 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name           = "brewtech-controller"
+version        = "0.1.0"
+edition        = "2021"
+forced-target  = "riscv32imc-unknown-none-elf"
+
+[[bin]]
+name = "brewtech-controller"
+path = "src/main.rs"
+
+[dependencies]
+brewtech-core      = { workspace = true }
+esp-hal          = { workspace = true, features = ["esp32c3", "unstable"] }
+esp-rtos         = { workspace = true, features = ["esp32c3"] }
+esp-println      = { workspace = true, features = ["esp32c3"] }
+esp-backtrace    = { workspace = true, features = ["esp32c3"] }
+esp-bootloader-esp-idf = { workspace = true, features = ["esp32c3"] }
+embassy-executor = { workspace = true }
+embassy-time     = { workspace = true }
+embassy-sync     = { workspace = true }
+log              = { workspace = true }
+heapless         = { workspace = true }
+static_cell      = { workspace = true }
+critical-section = { workspace = true }
+embedded-can     = { workspace = true }

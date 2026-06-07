@@ -1,0 +1,18 @@
+# rust-analyzer project configuration
+#
+# .cargo/config.toml sets [build] target = riscv32imc-unknown-none-elf for
+# cargo build/run/flash. rust-analyzer picks that up and tries to analyze all
+# workspace crates under the embedded target, which breaks the no_std core
+# library: the `test` harness crate doesn't exist on embedded targets, so
+# every #[cfg(test)] block gets "can't find crate for `test`" false-positives.
+#
+# Fix: tell rust-analyzer to use the host target for IDE analysis. Cargo
+# check/build still honour .cargo/config.toml, so the embedded target is used
+# for all actual compilation. Specify both targets for `check` so real firmware
+# errors are also surfaced in the diagnostics panel.
+
+[cargo]
+target = "x86_64-unknown-linux-gnu"
+
+[check]
+targets = ["riscv32imc-unknown-none-elf", "riscv32imac-unknown-none-elf", "x86_64-unknown-linux-gnu"]

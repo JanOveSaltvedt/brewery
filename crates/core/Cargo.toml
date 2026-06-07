@@ -1,0 +1,16 @@
+[package]
+name    = "brewtech-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+heapless = { workspace = true }
+
+[dev-dependencies]
+# host-side tests only — no no_std constraint here
+
+[features]
+default = []
+
+# Tell Cargo this is a no_std crate when used as a dependency,
+# but allow std for `cargo test` on the host.
