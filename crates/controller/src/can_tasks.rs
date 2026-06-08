@@ -65,7 +65,7 @@ pub async fn density_probe_task(mut tx: TwaiTx<'static, Async>, node_id: u8) {
     .to_u32();
 
     loop {
-        Timer::after(Duration::from_secs(30)).await;
+        Timer::after(Duration::from_secs(300)).await;
         if let Some(frame) = EspTwaiFrame::new(ExtendedId::new(raw_id).unwrap(), &probe_data) {
             if let Err(e) = tx.transmit_async(&frame).await {
                 log::warn!("CAN tx error probing node {}: {:?}", node_id, e);

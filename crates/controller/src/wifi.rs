@@ -1,7 +1,7 @@
 use embassy_executor::Spawner;
 use embassy_net::{tcp::TcpSocket, Runner, StackResources};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Duration, Instant, Timer};
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{
     scan::{ScanConfig, ScanTypeConfig},
@@ -50,20 +50,6 @@ const HA_DENSITY_DISCOVERY_PAYLOAD: &str = concat!(
     r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
 );
 
-#[derive(Clone, Copy, PartialEq)]
-struct PublishedState {
-    temperature: Option<u32>, // bits of f32, avoids PartialEq issues
-    density: Option<u32>,
-}
-
-impl PublishedState {
-    fn from_sensor(s: &SensorState) -> Self {
-        Self {
-            temperature: s.temperature.map(f32::to_bits),
-            density: s.density.map(f32::to_bits),
-        }
-    }
-}
 
 static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
 
@@ -206,7 +192,15 @@ pub async fn wifi_task(
     let mut tcp_rx_buf = [0u8; 1024];
     let mut tcp_tx_buf = [0u8; 512];
 
-    let mut last_published = PublishedState::from_sensor(&*state.lock().await);
+    // Accumulate sensor readings over 60-second windows. Values are compared
+    // by bit pattern so that identical consecutive readings are not double-counted.
+    let mut temp_sum: f32 = 0.0;
+    let mut temp_count: u32 = 0;
+    let mut density_sum: f32 = 0.0;
+    let mut density_count: u32 = 0;
+    let mut last_seen_temp: Option<u32> = None;
+    let mut last_seen_density: Option<u32> = None;
+    let mut window_start = Instant::now();
 
     'reconnect: loop {
         let Ok(broker_ip) = parse_ipv4(MQTT_HOST) else {
@@ -221,7 +215,7 @@ pub async fn wifi_task(
             .unwrap()
             .client_id("brewtech")
             .unwrap()
-            .keepalive_interval(60);
+            .keepalive_interval(5);
         if !MQTT_USERNAME.is_empty() {
             config = config
                 .auth(MQTT_USERNAME, MQTT_PASSWORD.as_bytes())
@@ -287,41 +281,65 @@ pub async fn wifi_task(
         log::info!("mqtt: discovery published");
 
         loop {
-            let snap = PublishedState::from_sensor(&*state.lock().await);
-            if snap != last_published {
-                if snap.temperature != last_published.temperature {
-                    if let Some(bits) = snap.temperature {
-                        let val = f32::from_bits(bits);
-                        let mut buf = [0u8; 32];
-                        if let Some(s) = format_float(val, 2, &mut buf) {
-                            if session
-                                .publish(Publication::new(TEMP_TOPIC, s.as_bytes()))
-                                .await
-                                .is_err()
-                            {
-                                Timer::after(Duration::from_secs(5)).await;
-                                continue 'reconnect;
-                            }
-                        }
+            // Accumulate any new sensor readings into the current window.
+            {
+                let sensor = state.lock().await;
+                let temp_bits = sensor.temperature.map(f32::to_bits);
+                let density_bits = sensor.density.map(f32::to_bits);
+                drop(sensor);
+
+                if temp_bits != last_seen_temp {
+                    last_seen_temp = temp_bits;
+                    if let Some(bits) = temp_bits {
+                        temp_sum += f32::from_bits(bits);
+                        temp_count += 1;
                     }
                 }
-                if snap.density != last_published.density {
-                    if let Some(bits) = snap.density {
-                        let val = f32::from_bits(bits);
-                        let mut buf = [0u8; 32];
-                        if let Some(s) = format_float(val, 4, &mut buf) {
-                            if session
-                                .publish(Publication::new(DENSITY_TOPIC, s.as_bytes()))
-                                .await
-                                .is_err()
-                            {
-                                Timer::after(Duration::from_secs(5)).await;
-                                continue 'reconnect;
-                            }
-                        }
+                if density_bits != last_seen_density {
+                    last_seen_density = density_bits;
+                    if let Some(bits) = density_bits {
+                        density_sum += f32::from_bits(bits);
+                        density_count += 1;
                     }
                 }
-                last_published = snap;
+            }
+
+            // At the end of each 60-second window, publish averages for any
+            // values that had at least one new reading.
+            if Instant::now() >= window_start + Duration::from_secs(60) {
+                if temp_count > 0 {
+                    let avg = temp_sum / temp_count as f32;
+                    let mut buf = [0u8; 32];
+                    if let Some(s) = format_float(avg, 2, &mut buf) {
+                        if session
+                            .publish(Publication::new(TEMP_TOPIC, s.as_bytes()))
+                            .await
+                            .is_err()
+                        {
+                            Timer::after(Duration::from_secs(5)).await;
+                            continue 'reconnect;
+                        }
+                    }
+                    temp_sum = 0.0;
+                    temp_count = 0;
+                }
+                if density_count > 0 {
+                    let avg = density_sum / density_count as f32;
+                    let mut buf = [0u8; 32];
+                    if let Some(s) = format_float(avg, 4, &mut buf) {
+                        if session
+                            .publish(Publication::new(DENSITY_TOPIC, s.as_bytes()))
+                            .await
+                            .is_err()
+                        {
+                            Timer::after(Duration::from_secs(5)).await;
+                            continue 'reconnect;
+                        }
+                    }
+                    density_sum = 0.0;
+                    density_count = 0;
+                }
+                window_start = Instant::now();
             }
 
             match embassy_time::with_timeout(Duration::from_millis(100), session.poll()).await {
