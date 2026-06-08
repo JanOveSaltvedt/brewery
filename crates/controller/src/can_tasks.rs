@@ -1,6 +1,11 @@
 use brewtech_core::can_protocol::*;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Sender, mutex::Mutex};
-use embassy_time::{Duration, Timer};
+use embassy_futures::select::{select, Either};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Receiver, Sender},
+    mutex::Mutex,
+};
+use embassy_time::{Duration, Ticker};
 use embedded_can::Frame as _;
 use esp_hal::{
     twai::{EspTwaiFrame, ExtendedId, TwaiRx, TwaiTx},
@@ -13,6 +18,7 @@ use crate::{SensorReading, SensorState};
 pub async fn can_rx_task(
     mut rx: TwaiRx<'static, Async>,
     sender: Sender<'static, CriticalSectionRawMutex, SensorReading, 16>,
+    ack_sender: Sender<'static, CriticalSectionRawMutex, u32, 1>,
     node_id: u8,
 ) {
     loop {
@@ -38,24 +44,42 @@ pub async fn can_rx_task(
 
         let data = frame.data();
 
-        let reading = match can_id.msg_type {
+        match can_id.msg_type {
             MSG_TYPE_TEMPERATURE => {
-                decode_float(data).map(|celsius| SensorReading::Temperature { node_id, celsius })
+                if let Some(reading) = decode_float(data)
+                    .map(|celsius| SensorReading::Temperature { node_id, celsius })
+                {
+                    sender.try_send(reading).ok();
+                }
             }
-            MSG_TYPE_DENSITY => decode_float(data).map(|sg| SensorReading::Density { node_id, sg }),
-            _ => None,
-        };
-
-        if let Some(r) = reading {
-            sender.try_send(r).ok();
+            MSG_TYPE_DENSITY => {
+                if let Some(reading) =
+                    decode_float(data).map(|sg| SensorReading::Density { node_id, sg })
+                {
+                    sender.try_send(reading).ok();
+                }
+            }
+            MSG_TYPE_CALIBRATION_ACK => {
+                if let Some(ack) = decode_uint32(data) {
+                    if ack != ACK_TYPE_NONE {
+                        log::info!("[density #{}] calibration_ack raw={}", node_id, ack);
+                        ack_sender.try_send(ack).ok();
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
 
 #[embassy_executor::task]
-pub async fn density_probe_task(mut tx: TwaiTx<'static, Async>, node_id: u8) {
+pub async fn can_tx_task(
+    mut tx: TwaiTx<'static, Async>,
+    cmd_receiver: Receiver<'static, CriticalSectionRawMutex, f32, 1>,
+    node_id: u8,
+) {
     let probe_data = [0u8];
-    let raw_id = CanId {
+    let probe_id = CanId {
         priority: PRIORITY_MEDIUM,
         sender_node_type: NODE_TYPE_PLC,
         receiver_node_type: NODE_TYPE_DENSITY_SENSOR,
@@ -63,12 +87,39 @@ pub async fn density_probe_task(mut tx: TwaiTx<'static, Async>, node_id: u8) {
         msg_type: MSG_TYPE_START_MEASUREMENT_CMD,
     }
     .to_u32();
+    let calib_id = CanId {
+        priority: PRIORITY_HIGH,
+        sender_node_type: NODE_TYPE_PLC,
+        receiver_node_type: NODE_TYPE_DENSITY_SENSOR,
+        secondary_node_id: node_id,
+        msg_type: MSG_TYPE_CALIBRATION_CMD,
+    }
+    .to_u32();
+
+    let mut probe_ticker = Ticker::every(Duration::from_secs(5 * 60));
 
     loop {
-        Timer::after(Duration::from_secs(300)).await;
-        if let Some(frame) = EspTwaiFrame::new(ExtendedId::new(raw_id).unwrap(), &probe_data) {
-            if let Err(e) = tx.transmit_async(&frame).await {
-                log::warn!("CAN tx error probing node {}: {:?}", node_id, e);
+        match select(probe_ticker.next(), cmd_receiver.receive()).await {
+            Either::First(_) => {
+                if let Some(frame) =
+                    EspTwaiFrame::new(ExtendedId::new(probe_id).unwrap(), &probe_data)
+                {
+                    if let Err(e) = tx.transmit_async(&frame).await {
+                        log::warn!("CAN tx error probing node {}: {:?}", node_id, e);
+                    }
+                }
+            }
+            Either::Second(sg) => {
+                let calib_data = encode_float(sg);
+                if let Some(frame) =
+                    EspTwaiFrame::new(ExtendedId::new(calib_id).unwrap(), &calib_data)
+                {
+                    if let Err(e) = tx.transmit_async(&frame).await {
+                        log::warn!("CAN tx error calibrating node {}: {:?}", node_id, e);
+                    } else {
+                        log::info!("[density #{}] calibration cmd sent sg={:.4}", node_id, sg);
+                    }
+                }
             }
         }
     }

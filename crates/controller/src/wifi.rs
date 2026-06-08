@@ -1,17 +1,18 @@
 use embassy_executor::Spawner;
 use embassy_net::{tcp::TcpSocket, Runner, StackResources};
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Receiver, Sender},
+    mutex::Mutex,
+};
 use embassy_time::{Duration, Instant, Timer};
 use esp_hal::rng::Rng;
 use esp_radio::wifi::{
     scan::{ScanConfig, ScanTypeConfig},
     sta::StationConfig,
-    Config as WifiConfig,
-    ControllerConfig,
-    Interface,
-    WifiController,
+    Config as WifiConfig, ControllerConfig, Interface, WifiController,
 };
-use minimq::{Buffers, ConfigBuilder, Publication, Session, Will};
+use minimq::{Buffers, ConfigBuilder, Publication, Session, TopicFilter, Will};
 use static_cell::StaticCell;
 
 use crate::SensorState;
@@ -31,6 +32,8 @@ const MIN_CONNECT_RSSI: i8 = -70;
 const AVAIL_TOPIC: &str = "brewtech/available";
 const TEMP_TOPIC: &str = "brewtech/sensor/0/temperature";
 const DENSITY_TOPIC: &str = "brewtech/sensor/0/density";
+const CALIBRATE_TOPIC: &str = "brewtech/sensor/0/calibrate";
+const CALIBRATION_ACK_TOPIC: &str = "brewtech/sensor/0/calibration_ack";
 
 const HA_TEMP_DISCOVERY_TOPIC: &str = "homeassistant/sensor/brewtech_0_temperature/config";
 const HA_TEMP_DISCOVERY_PAYLOAD: &str = concat!(
@@ -50,6 +53,25 @@ const HA_DENSITY_DISCOVERY_PAYLOAD: &str = concat!(
     r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
 );
 
+const HA_CALIBRATE_DISCOVERY_TOPIC: &str = "homeassistant/number/brewtech_0_calibrate/config";
+const HA_CALIBRATE_DISCOVERY_PAYLOAD: &str = concat!(
+    r#"{"name":"Calibrate Density","unique_id":"brewtech_0_calibrate","#,
+    r#""command_topic":"brewtech/sensor/0/calibrate","#,
+    r#""min":0.9,"max":1.2,"step":0.001,"mode":"box","#,
+    r#""unit_of_measurement":"SG","icon":"mdi:scale","#,
+    r#""availability_topic":"brewtech/available","#,
+    r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
+);
+
+const HA_CALIBRATION_ACK_DISCOVERY_TOPIC: &str =
+    "homeassistant/sensor/brewtech_0_calibration_ack/config";
+const HA_CALIBRATION_ACK_DISCOVERY_PAYLOAD: &str = concat!(
+    r#"{"name":"Calibration Status","unique_id":"brewtech_0_calibration_ack","#,
+    r#""state_topic":"brewtech/sensor/0/calibration_ack","#,
+    r#""icon":"mdi:check-circle","#,
+    r#""availability_topic":"brewtech/available","#,
+    r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
+);
 
 static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
 
@@ -109,7 +131,8 @@ async fn connection_task(mut controller: WifiController<'static>) {
         if best_rssi < MIN_CONNECT_RSSI {
             log::warn!(
                 "wifi: best RSSI {} dBm < threshold {} dBm, retrying in 15s",
-                best_rssi, MIN_CONNECT_RSSI
+                best_rssi,
+                MIN_CONNECT_RSSI
             );
             Timer::after(Duration::from_secs(15)).await;
             continue;
@@ -119,7 +142,9 @@ async fn connection_task(mut controller: WifiController<'static>) {
         // weaker AP on a different channel.
         log::info!(
             "wifi: pinning to bssid={:02x?} ch={} rssi={} dBm",
-            best_bssid, best_channel, best_rssi
+            best_bssid,
+            best_channel,
+            best_rssi
         );
         if let Err(e) = controller.set_config(&WifiConfig::Station(
             StationConfig::default()
@@ -153,6 +178,8 @@ pub async fn wifi_task(
     wifi: esp_hal::peripherals::WIFI<'static>,
     spawner: Spawner,
     state: &'static Mutex<CriticalSectionRawMutex, SensorState>,
+    cmd_sender: Sender<'static, CriticalSectionRawMutex, f32, 1>,
+    ack_receiver: Receiver<'static, CriticalSectionRawMutex, u32, 1>,
 ) {
     let station_config = WifiConfig::Station(
         StationConfig::default()
@@ -188,7 +215,7 @@ pub async fn wifi_task(
     log::info!("wifi: IP acquired");
 
     let mut mqtt_rx_buf = [0u8; 256];
-    let mut mqtt_tx_buf = [0u8; 768];
+    let mut mqtt_tx_buf = [0u8; 2048];
     let mut tcp_rx_buf = [0u8; 1024];
     let mut tcp_tx_buf = [0u8; 512];
 
@@ -240,41 +267,66 @@ pub async fn wifi_task(
         }
         log::info!("mqtt: connected");
 
-        if session
-            .publish(Publication::new(AVAIL_TOPIC, b"online" as &[u8]).retain())
-            .await
-            .is_err()
-        {
-            continue 'reconnect;
+        macro_rules! publish_or_reconnect {
+            ($pub:expr, $label:literal) => {
+                if $pub.await.is_err() {
+                    log::warn!("mqtt: failed to publish {}", $label);
+                    continue 'reconnect;
+                }
+            };
         }
 
-        if session
-            .publish(
-                Publication::new(
-                    HA_TEMP_DISCOVERY_TOPIC,
-                    HA_TEMP_DISCOVERY_PAYLOAD.as_bytes(),
-                )
-                .retain()
-                .qos(minimq::QoS::AtLeastOnce),
-            )
-            .await
-            .is_err()
-        {
-            continue 'reconnect;
-        }
-
-        if session
-            .publish(
+        publish_or_reconnect!(
+            session.publish(Publication::new(AVAIL_TOPIC, b"online" as &[u8]).retain()),
+            "available"
+        );
+        publish_or_reconnect!(
+            session.publish(
+                Publication::new(HA_TEMP_DISCOVERY_TOPIC, HA_TEMP_DISCOVERY_PAYLOAD.as_bytes())
+                    .retain()
+                    .qos(minimq::QoS::AtLeastOnce),
+            ),
+            "temp discovery"
+        );
+        publish_or_reconnect!(
+            session.publish(
                 Publication::new(
                     HA_DENSITY_DISCOVERY_TOPIC,
                     HA_DENSITY_DISCOVERY_PAYLOAD.as_bytes(),
                 )
                 .retain()
                 .qos(minimq::QoS::AtLeastOnce),
-            )
+            ),
+            "density discovery"
+        );
+        publish_or_reconnect!(
+            session.publish(
+                Publication::new(
+                    HA_CALIBRATE_DISCOVERY_TOPIC,
+                    HA_CALIBRATE_DISCOVERY_PAYLOAD.as_bytes(),
+                )
+                .retain()
+                .qos(minimq::QoS::AtLeastOnce),
+            ),
+            "calibrate discovery"
+        );
+        publish_or_reconnect!(
+            session.publish(
+                Publication::new(
+                    HA_CALIBRATION_ACK_DISCOVERY_TOPIC,
+                    HA_CALIBRATION_ACK_DISCOVERY_PAYLOAD.as_bytes(),
+                )
+                .retain()
+                .qos(minimq::QoS::AtLeastOnce),
+            ),
+            "calibration_ack discovery"
+        );
+
+        if let Err(e) = session
+            .subscribe(&[TopicFilter::new(CALIBRATE_TOPIC)], &[])
             .await
-            .is_err()
         {
+            log::warn!("mqtt: subscribe failed: {:?}", e);
             continue 'reconnect;
         }
 
@@ -311,6 +363,8 @@ pub async fn wifi_task(
                     let avg = temp_sum / temp_count as f32;
                     let mut buf = [0u8; 32];
                     if let Some(s) = format_float(avg, 2, &mut buf) {
+                        log::info!("Publishing temperature as {}C", s);
+
                         if session
                             .publish(Publication::new(TEMP_TOPIC, s.as_bytes()))
                             .await
@@ -327,6 +381,8 @@ pub async fn wifi_task(
                     let avg = density_sum / density_count as f32;
                     let mut buf = [0u8; 32];
                     if let Some(s) = format_float(avg, 4, &mut buf) {
+                        log::info!("Publishing SG as {}", s);
+
                         if session
                             .publish(Publication::new(DENSITY_TOPIC, s.as_bytes()))
                             .await
@@ -342,8 +398,32 @@ pub async fn wifi_task(
                 window_start = Instant::now();
             }
 
+            // Publish any calibration ACKs received from the sensor.
+            while let Ok(ack) = ack_receiver.try_receive() {
+                let status = ack_type_str(ack);
+                log::info!("mqtt: calibration ack = {}", status);
+                if session
+                    .publish(Publication::new(CALIBRATION_ACK_TOPIC, status.as_bytes()).retain())
+                    .await
+                    .is_err()
+                {
+                    Timer::after(Duration::from_secs(5)).await;
+                    continue 'reconnect;
+                }
+            }
+
             match embassy_time::with_timeout(Duration::from_millis(100), session.poll()).await {
-                Ok(Ok(_)) => {}
+                Ok(Ok(Some(msg))) => {
+                    if msg.topic() == CALIBRATE_TOPIC {
+                        if let Ok(s) = core::str::from_utf8(msg.payload()) {
+                            if let Ok(sg) = s.trim().parse::<f32>() {
+                                log::info!("mqtt: calibrate cmd sg={:.4}", sg);
+                                cmd_sender.try_send(sg).ok();
+                            }
+                        }
+                    }
+                }
+                Ok(Ok(None)) => {}
                 Ok(Err(e)) => {
                     log::warn!("mqtt: poll error: {:?}", e);
                     Timer::after(Duration::from_secs(5)).await;
@@ -352,6 +432,15 @@ pub async fn wifi_task(
                 Err(_timeout) => {}
             }
         }
+    }
+}
+
+fn ack_type_str(ack: u32) -> &'static str {
+    match ack {
+        1 => "calibrating",
+        2 => "ok",
+        3 => "error",
+        _ => "none",
     }
 }
 

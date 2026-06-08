@@ -5,7 +5,7 @@
 mod can_tasks;
 mod wifi;
 
-use can_tasks::{can_rx_task, density_probe_task, sensor_log_task};
+use can_tasks::{can_rx_task, can_tx_task, sensor_log_task};
 
 const SENSOR_NODE_ID: u8 =
     esp_config::esp_config_int!(u8, "BREWTECH_CONTROLLER_CONFIG_SENSOR_NODE_ID");
@@ -34,6 +34,11 @@ pub enum SensorReading {
 }
 
 static READINGS: Channel<CriticalSectionRawMutex, SensorReading, 16> = Channel::new();
+
+// Calibration command (wifi_task → can_tx_task): SG float to send to sensor.
+static CALIBRATION_CMD: Channel<CriticalSectionRawMutex, f32, 1> = Channel::new();
+// Calibration ACK (can_rx_task → wifi_task): decoded ACK type from sensor.
+static CALIBRATION_ACK: Channel<CriticalSectionRawMutex, u32, 1> = Channel::new();
 
 // ---------------------------------------------------------------------------
 // Shared sensor state (node 0 only) — updated by sensor_log_task, read by wifi_task.
@@ -80,10 +85,10 @@ async fn main(spawner: Spawner) {
 
     let (rx, tx) = twai.split();
 
-    spawner.spawn(can_rx_task(rx, READINGS.sender(), SENSOR_NODE_ID).unwrap());
-    spawner.spawn(density_probe_task(tx, SENSOR_NODE_ID).unwrap());
+    spawner.spawn(can_rx_task(rx, READINGS.sender(), CALIBRATION_ACK.sender(), SENSOR_NODE_ID).unwrap());
+    spawner.spawn(can_tx_task(tx, CALIBRATION_CMD.receiver(), SENSOR_NODE_ID).unwrap());
     spawner.spawn(sensor_log_task(READINGS.receiver(), sensor_state, SENSOR_NODE_ID).unwrap());
-    spawner.spawn(wifi::wifi_task(p.WIFI, spawner, sensor_state).unwrap());
+    spawner.spawn(wifi::wifi_task(p.WIFI, spawner, sensor_state, CALIBRATION_CMD.sender(), CALIBRATION_ACK.receiver()).unwrap());
 
     log::info!("controller ready — listening for density sensors");
 }
