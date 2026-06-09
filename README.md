@@ -1,4 +1,4 @@
-# brewtech
+# Brewery Controller
 
 Embedded Rust firmware for an ESP32-C3 that bridges [BrewTools](https://www.brewtools.no/) density/temperature sensors over a CAN bus to MQTT, with automatic Home Assistant discovery.
 

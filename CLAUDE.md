@@ -1,4 +1,4 @@
-# brewtech
+# Brewery Controller
 
 Embedded Rust workspace for an ESP32-C3 that reads BrewTools density/temperature sensors over a CAN bus and publishes readings to MQTT over WiFi.
 
@@ -11,7 +11,7 @@ crates/
   test-can-devices/  # test bench: fakes a density sensor on a second ESP32-C3
 ```
 
-### `crates/core` — `brewtech-core`
+### `crates/core` — `brewery-core`
 
 Pure `no_std` crate with no HAL dependency. Contains:
 
@@ -26,25 +26,28 @@ Six Embassy async tasks:
 | Task | File | Role |
 |---|---|---|
 | `can_rx_task` | `src/can_tasks.rs` | Receives CAN frames, dispatches temperature and density readings into a channel |
-| `density_probe_task` | `src/can_tasks.rs` | Every 5 s sends `MSG_TYPE_START_MEASUREMENT_CMD` to all 8 node IDs |
-| `sensor_log_task` | `src/can_tasks.rs` | Drains the channel, logs readings, updates shared `SensorState` (node 0 only) |
-| `connection_task` | `src/wifi.rs` | Manages WiFi reconnection with 5 s backoff |
-| `net_task` | `src/wifi.rs` | Drives embassy-net's internal event loop |
+| `can_tx_task` | `src/can_tasks.rs` | Every 5 min sends `MSG_TYPE_START_MEASUREMENT_CMD`; also forwards calibration commands from MQTT |
+| `sensor_log_task` | `src/can_tasks.rs` | Drains the channel, logs readings, signals `TEMP_SIGNAL` / `DENSITY_SIGNAL` |
+| `connection_task` | `src/wifi.rs` | Manages WiFi reconnection with 5 s backoff (spawned by `wifi_task`) |
+| `net_task` | `src/wifi.rs` | Drives embassy-net's internal event loop (spawned by `wifi_task`) |
 | `wifi_task` | `src/wifi.rs` | Connects to MQTT broker, publishes sensor readings and HA discovery messages |
 
-**Shared state:** `SensorState { temperature: Option<f32>, density: Option<f32> }` is a static `Mutex` updated by `sensor_log_task` and polled by `wifi_task`. Only node 0 is tracked.
+**Shared state:** `TEMP_SIGNAL` and `DENSITY_SIGNAL` are static `Signal<CriticalSectionRawMutex, f32>` values signalled by `sensor_log_task` and awaited by `wifi_task`. The tracked node ID is set at compile time via `sensor-node-id` in `cfg.toml`.
 
-`SensorReading` enum and the static `READINGS` channel are defined in `src/main.rs`.
+`SensorReading` enum, the static `READINGS` channel, `CALIBRATION_CMD` channel, and `CALIBRATION_ACK` channel are defined in `src/main.rs`.
 
 #### MQTT topics
 
 | Topic | Content |
 |---|---|
-| `brewtech/available` | `online` / `offline` (LWT) |
-| `brewtech/sensor/0/temperature` | float string, e.g. `"20.50"` (°C) |
-| `brewtech/sensor/0/density` | float string, e.g. `"1.0450"` (SG) |
-| `homeassistant/sensor/brewtech_0_temperature/config` | HA discovery payload (retained) |
-| `homeassistant/sensor/brewtech_0_density/config` | HA discovery payload (retained) |
+| `brewery/available` | `online` / `offline` (LWT) |
+| `brewery/sensor/0/temperature` | float string, e.g. `"20.50"` (°C) |
+| `brewery/sensor/0/density` | float string, e.g. `"1.0450"` (SG) |
+| `brewery/sensor/0/calibrate` | write an SG float to trigger sensor calibration |
+| `brewery/sensor/0/calibration_ack` | echoes the calibrated value on success |
+| `homeassistant/sensor/brewery_0_temperature/config` | HA discovery payload (retained) |
+| `homeassistant/sensor/brewery_0_density/config` | HA discovery payload (retained) |
+| `homeassistant/number/brewery_0_calibrate/config` | HA calibration control discovery (retained) |
 
 Discovery messages are published retained on every MQTT connect, so Home Assistant auto-discovers the sensors without manual configuration.
 
@@ -53,16 +56,17 @@ Discovery messages are published retained on every MQTT connect, so Home Assista
 WiFi and MQTT credentials live in `crates/controller/cfg.toml` — **not checked into git**. Copy and edit this file on each new machine:
 
 ```toml
-[brewtech-controller]
+[brewery-controller]
 wifi-ssid      = "YourSSID"
 wifi-password  = "YourPassword"
 mqtt-host      = "192.168.1.100"
 mqtt-port      = 1883
 mqtt-username  = ""        # leave empty for unauthenticated
 mqtt-password  = ""
+sensor-node-id = 0         # BrewTools secondary node ID (0–7)
 ```
 
-The build script (`build.rs`) reads `cfg.toml` via `esp-config` and injects values as `BREWTECH_CONTROLLER_CONFIG_*` env vars at compile time. The schema is defined in `esp_config.yml`.
+The build script (`build.rs`) reads `cfg.toml` via `esp-config` and injects values as `BREWERY_CONTROLLER_CONFIG_*` env vars at compile time. The schema is defined in `esp_config.yml`.
 
 ### `crates/test-can-devices` — test bench firmware
 
@@ -98,19 +102,21 @@ Message data: byte 0 is a sub-index; bytes 1–4 carry a float (little-endian) o
 
 All esp-hal and embassy crates are **git-pinned** to specific commits in `Cargo.toml`. Do not change those revisions independently — they must stay in sync. The `[patch.crates-io]` section redirects any transitive crates.io pulls to the same pinned commits.
 
+The esp-hal crates point to a **personal fork** (`JanOveSaltvedt/esp-hal`) rather than the upstream `esp-rs/esp-hal`. The fork adds support for pinning a WiFi connection to a specific AP by BSSID (`ClientConfiguration::with_bssid`), which upstream does not expose. This lets `connection_task` scan for all APs matching the configured SSID, pick the strongest one, and lock to its BSSID so the driver cannot silently roam to a weaker AP on a different channel.
+
 Key pins:
-- esp-hal / esp-rtos / esp-println / esp-backtrace / esp-radio / esp-alloc / esp-config: `0c42fd92c7d0e4ed8c8e4f18630b93bcb33b3e6d`
+- esp-hal / esp-rtos / esp-println / esp-backtrace / esp-radio / esp-alloc / esp-config: `98a0e08b0d03aa9c0d47d7ecb04beb0ea00d4f85`
 - embassy-executor / embassy-time / embassy-sync / embassy-net / embassy-futures: `414780f2f635594d0b9b0d343ed22dfcb69f70ef`
 
 ## Building & Flashing
 
 ```bash
 # Check (no hardware needed)
-cargo check -p brewtech-controller
+cargo check -p brewery-controller
 cargo check -p test-can-devices
 
 # Flash controller (uses espflash runner from .cargo/config.toml)
-cargo run --release -p brewtech-controller
+cargo run --release -p brewery-controller
 
 # Flash test bench
 cargo run --release -p test-can-devices
