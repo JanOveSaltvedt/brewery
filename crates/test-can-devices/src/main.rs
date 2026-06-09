@@ -10,7 +10,7 @@
 #![no_main]
 #![feature(impl_trait_in_assoc_type)]
 
-use brewtech_core::can_protocol::*;
+use brewery_core::can_protocol::*;
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, Either};
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, signal::Signal};

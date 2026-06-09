@@ -15,60 +15,60 @@ use minimq::{Buffers, ConfigBuilder, Publication, Session, TopicFilter, Will};
 use static_cell::StaticCell;
 
 
-const WIFI_SSID: &str = env!("BREWTECH_CONTROLLER_CONFIG_WIFI_SSID");
-const WIFI_PASSWORD: &str = env!("BREWTECH_CONTROLLER_CONFIG_WIFI_PASSWORD");
-const MQTT_HOST: &str = env!("BREWTECH_CONTROLLER_CONFIG_MQTT_HOST");
-const MQTT_PORT: u16 = esp_config::esp_config_int!(u16, "BREWTECH_CONTROLLER_CONFIG_MQTT_PORT");
-const MQTT_USERNAME: &str = env!("BREWTECH_CONTROLLER_CONFIG_MQTT_USERNAME");
-const MQTT_PASSWORD: &str = env!("BREWTECH_CONTROLLER_CONFIG_MQTT_PASSWORD");
+const WIFI_SSID: &str = env!("BREWERY_CONTROLLER_CONFIG_WIFI_SSID");
+const WIFI_PASSWORD: &str = env!("BREWERY_CONTROLLER_CONFIG_WIFI_PASSWORD");
+const MQTT_HOST: &str = env!("BREWERY_CONTROLLER_CONFIG_MQTT_HOST");
+const MQTT_PORT: u16 = esp_config::esp_config_int!(u16, "BREWERY_CONTROLLER_CONFIG_MQTT_PORT");
+const MQTT_USERNAME: &str = env!("BREWERY_CONTROLLER_CONFIG_MQTT_USERNAME");
+const MQTT_PASSWORD: &str = env!("BREWERY_CONTROLLER_CONFIG_MQTT_PASSWORD");
 
 // Only attempt to connect when the best visible AP for our SSID is at least
 // this strong. Avoids thrashing against an AP that the network will immediately
 // kick us from due to BSS load-balancing.
 const MIN_CONNECT_RSSI: i8 = -70;
 
-const AVAIL_TOPIC: &str = "brewtech/available";
-const TEMP_TOPIC: &str = "brewtech/sensor/0/temperature";
-const DENSITY_TOPIC: &str = "brewtech/sensor/0/density";
-const CALIBRATE_TOPIC: &str = "brewtech/sensor/0/calibrate";
-const CALIBRATION_ACK_TOPIC: &str = "brewtech/sensor/0/calibration_ack";
+const AVAIL_TOPIC: &str = "brewery/available";
+const TEMP_TOPIC: &str = "brewery/sensor/0/temperature";
+const DENSITY_TOPIC: &str = "brewery/sensor/0/density";
+const CALIBRATE_TOPIC: &str = "brewery/sensor/0/calibrate";
+const CALIBRATION_ACK_TOPIC: &str = "brewery/sensor/0/calibration_ack";
 
-const HA_TEMP_DISCOVERY_TOPIC: &str = "homeassistant/sensor/brewtech_0_temperature/config";
+const HA_TEMP_DISCOVERY_TOPIC: &str = "homeassistant/sensor/brewery_0_temperature/config";
 const HA_TEMP_DISCOVERY_PAYLOAD: &str = concat!(
-    r#"{"name":"Temperature","unique_id":"brewtech_0_temperature","#,
-    r#""state_topic":"brewtech/sensor/0/temperature","#,
+    r#"{"name":"Temperature","unique_id":"brewery_0_temperature","#,
+    r#""state_topic":"brewery/sensor/0/temperature","#,
     r#""device_class":"temperature","unit_of_measurement":"°C","#,
-    r#""availability_topic":"brewtech/available","#,
-    r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
+    r#""availability_topic":"brewery/available","#,
+    r#""device":{"identifiers":["brewery_0"],"name":"Brewery Sensor 0","model":"Brewery"}}"#
 );
 
-const HA_DENSITY_DISCOVERY_TOPIC: &str = "homeassistant/sensor/brewtech_0_density/config";
+const HA_DENSITY_DISCOVERY_TOPIC: &str = "homeassistant/sensor/brewery_0_density/config";
 const HA_DENSITY_DISCOVERY_PAYLOAD: &str = concat!(
-    r#"{"name":"Specific Gravity","unique_id":"brewtech_0_density","#,
-    r#""state_topic":"brewtech/sensor/0/density","#,
+    r#"{"name":"Specific Gravity","unique_id":"brewery_0_density","#,
+    r#""state_topic":"brewery/sensor/0/density","#,
     r#""unit_of_measurement":"SG","icon":"mdi:beer","#,
-    r#""availability_topic":"brewtech/available","#,
-    r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
+    r#""availability_topic":"brewery/available","#,
+    r#""device":{"identifiers":["brewery_0"],"name":"Brewery Sensor 0","model":"Brewery"}}"#
 );
 
-const HA_CALIBRATE_DISCOVERY_TOPIC: &str = "homeassistant/number/brewtech_0_calibrate/config";
+const HA_CALIBRATE_DISCOVERY_TOPIC: &str = "homeassistant/number/brewery_0_calibrate/config";
 const HA_CALIBRATE_DISCOVERY_PAYLOAD: &str = concat!(
-    r#"{"name":"Calibrate Density","unique_id":"brewtech_0_calibrate","#,
-    r#""command_topic":"brewtech/sensor/0/calibrate","#,
+    r#"{"name":"Calibrate Density","unique_id":"brewery_0_calibrate","#,
+    r#""command_topic":"brewery/sensor/0/calibrate","#,
     r#""min":0.9,"max":1.2,"step":0.001,"mode":"box","#,
     r#""unit_of_measurement":"SG","icon":"mdi:scale","#,
-    r#""availability_topic":"brewtech/available","#,
-    r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
+    r#""availability_topic":"brewery/available","#,
+    r#""device":{"identifiers":["brewery_0"],"name":"Brewery Sensor 0","model":"Brewery"}}"#
 );
 
 const HA_CALIBRATION_ACK_DISCOVERY_TOPIC: &str =
-    "homeassistant/sensor/brewtech_0_calibration_ack/config";
+    "homeassistant/sensor/brewery_0_calibration_ack/config";
 const HA_CALIBRATION_ACK_DISCOVERY_PAYLOAD: &str = concat!(
-    r#"{"name":"Calibration Status","unique_id":"brewtech_0_calibration_ack","#,
-    r#""state_topic":"brewtech/sensor/0/calibration_ack","#,
+    r#"{"name":"Calibration Status","unique_id":"brewery_0_calibration_ack","#,
+    r#""state_topic":"brewery/sensor/0/calibration_ack","#,
     r#""icon":"mdi:check-circle","#,
-    r#""availability_topic":"brewtech/available","#,
-    r#""device":{"identifiers":["brewtech_0"],"name":"BrewTools Sensor 0","model":"BrewTools"}}"#
+    r#""availability_topic":"brewery/available","#,
+    r#""device":{"identifiers":["brewery_0"],"name":"Brewery Sensor 0","model":"Brewery"}}"#
 );
 
 static NET_RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
@@ -227,7 +227,7 @@ pub async fn wifi_task(
         let mut config = ConfigBuilder::new(Buffers::new(&mut mqtt_rx_buf, &mut mqtt_tx_buf))
             .will(will)
             .unwrap()
-            .client_id("brewtech")
+            .client_id("brewery")
             .unwrap()
             .keepalive_interval(5);
         if !MQTT_USERNAME.is_empty() {

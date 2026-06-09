@@ -1,5 +1,5 @@
 [alias]
-run-controller  = ["espflash", "flash", "--monitor", "--release", "--target", "riscv32imc-unknown-none-elf", "--package", "brewtech-controller"]
+run-controller  = ["espflash", "flash", "--monitor", "--release", "--target", "riscv32imc-unknown-none-elf", "--package", "brewery-controller"]
 run-test-devices  = ["espflash", "flash", "--monitor", "--release", "--target", "riscv32imc-unknown-none-elf", "--package", "test-can-devices"]
 
 [build]

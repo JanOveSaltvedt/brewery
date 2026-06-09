@@ -1,4 +1,4 @@
-use brewtech_core::can_protocol::*;
+use brewery_core::can_protocol::*;
 use embassy_futures::select::{select, Either};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,

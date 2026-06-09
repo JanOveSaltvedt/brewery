@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.dependencies]
-brewtech-core = { path = "crates/core" }
+brewery-core = { path = "crates/core" }
 
 # ── esp-hal ecosystem ────────────────────────────────────────────────────────
 # All pinned to the same monorepo commit so they are guaranteed compatible.

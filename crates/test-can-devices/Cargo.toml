@@ -11,7 +11,7 @@ name = "test-can-devices"
 path = "src/main.rs"
 
 [dependencies]
-brewtech-core          = { workspace = true }
+brewery-core           = { workspace = true }
 esp-hal                = { workspace = true, features = ["esp32c3", "unstable"] }
 esp-rtos               = { workspace = true, features = ["esp32c3"] }
 esp-println            = { workspace = true, features = ["esp32c3"] }

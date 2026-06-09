@@ -1,4 +1,4 @@
-crate: brewtech-controller
+crate: brewery-controller
 
 options:
   - name: wifi-ssid

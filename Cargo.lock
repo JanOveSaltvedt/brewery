@@ -71,10 +71,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "brewtech-controller"
+name = "brewery-controller"
 version = "0.1.0"
 dependencies = [
- "brewtech-core",
+ "brewery-core",
  "critical-section",
  "embassy-executor",
  "embassy-futures",
@@ -98,7 +98,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "brewtech-core"
+name = "brewery-core"
 version = "0.1.0"
 dependencies = [
  "heapless 0.8.0",
@@ -1743,7 +1743,7 @@ dependencies = [
 name = "test-can-devices"
 version = "0.1.0"
 dependencies = [
- "brewtech-core",
+ "brewery-core",
  "critical-section",
  "embassy-executor",
  "embassy-futures",

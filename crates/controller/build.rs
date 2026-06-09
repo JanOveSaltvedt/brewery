@@ -6,10 +6,10 @@ fn main() {
     // Parse cfg.toml here and inject each entry so esp-config picks them up.
     if let Ok(contents) = std::fs::read_to_string("cfg.toml") {
         let table: toml::Table = contents.parse().expect("cfg.toml: invalid TOML");
-        if let Some(section) = table.get("brewtech-controller").and_then(|v| v.as_table()) {
+        if let Some(section) = table.get("brewery-controller").and_then(|v| v.as_table()) {
             for (key, value) in section {
                 let env_key = format!(
-                    "BREWTECH_CONTROLLER_CONFIG_{}",
+                    "BREWERY_CONTROLLER_CONFIG_{}",
                     key.to_uppercase().replace('-', "_")
                 );
                 let env_val = match value {

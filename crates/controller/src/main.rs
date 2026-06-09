@@ -8,7 +8,7 @@ mod wifi;
 use can_tasks::{can_rx_task, can_tx_task, sensor_log_task};
 
 const SENSOR_NODE_ID: u8 =
-    esp_config::esp_config_int!(u8, "BREWTECH_CONTROLLER_CONFIG_SENSOR_NODE_ID");
+    esp_config::esp_config_int!(u8, "BREWERY_CONTROLLER_CONFIG_SENSOR_NODE_ID");
 use embassy_executor::Spawner;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
