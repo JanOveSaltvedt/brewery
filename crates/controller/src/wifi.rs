@@ -3,7 +3,6 @@ use embassy_net::{tcp::TcpSocket, Runner, StackResources};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Receiver, Sender},
-    mutex::Mutex,
 };
 use embassy_time::{Duration, Instant, Timer};
 use esp_hal::rng::Rng;
@@ -15,7 +14,6 @@ use esp_radio::wifi::{
 use minimq::{Buffers, ConfigBuilder, Publication, Session, TopicFilter, Will};
 use static_cell::StaticCell;
 
-use crate::SensorState;
 
 const WIFI_SSID: &str = env!("BREWTECH_CONTROLLER_CONFIG_WIFI_SSID");
 const WIFI_PASSWORD: &str = env!("BREWTECH_CONTROLLER_CONFIG_WIFI_PASSWORD");
@@ -177,7 +175,6 @@ async fn connection_task(mut controller: WifiController<'static>) {
 pub async fn wifi_task(
     wifi: esp_hal::peripherals::WIFI<'static>,
     spawner: Spawner,
-    state: &'static Mutex<CriticalSectionRawMutex, SensorState>,
     cmd_sender: Sender<'static, CriticalSectionRawMutex, f32, 1>,
     ack_receiver: Receiver<'static, CriticalSectionRawMutex, u32, 1>,
 ) {
@@ -218,16 +215,6 @@ pub async fn wifi_task(
     let mut mqtt_tx_buf = [0u8; 2048];
     let mut tcp_rx_buf = [0u8; 1024];
     let mut tcp_tx_buf = [0u8; 512];
-
-    // Accumulate sensor readings over 60-second windows. Values are compared
-    // by bit pattern so that identical consecutive readings are not double-counted.
-    let mut temp_sum: f32 = 0.0;
-    let mut temp_count: u32 = 0;
-    let mut density_sum: f32 = 0.0;
-    let mut density_count: u32 = 0;
-    let mut last_seen_temp: Option<u32> = None;
-    let mut last_seen_density: Option<u32> = None;
-    let mut window_start = Instant::now();
 
     'reconnect: loop {
         let Ok(broker_ip) = parse_ipv4(MQTT_HOST) else {
@@ -332,39 +319,20 @@ pub async fn wifi_task(
 
         log::info!("mqtt: discovery published");
 
+        // Reset on each (re)connect so we publish immediately after reconnecting.
+        let mut last_temp_publish: Option<Instant> = None;
+
         loop {
-            // Accumulate any new sensor readings into the current window.
-            {
-                let sensor = state.lock().await;
-                let temp_bits = sensor.temperature.map(f32::to_bits);
-                let density_bits = sensor.density.map(f32::to_bits);
-                drop(sensor);
-
-                if temp_bits != last_seen_temp {
-                    last_seen_temp = temp_bits;
-                    if let Some(bits) = temp_bits {
-                        temp_sum += f32::from_bits(bits);
-                        temp_count += 1;
-                    }
-                }
-                if density_bits != last_seen_density {
-                    last_seen_density = density_bits;
-                    if let Some(bits) = density_bits {
-                        density_sum += f32::from_bits(bits);
-                        density_count += 1;
-                    }
-                }
-            }
-
-            // At the end of each 60-second window, publish averages for any
-            // values that had at least one new reading.
-            if Instant::now() >= window_start + Duration::from_secs(60) {
-                if temp_count > 0 {
-                    let avg = temp_sum / temp_count as f32;
+            // Latest temperature — rate-limited to once per 30 s.
+            if let Some(celsius) = crate::TEMP_SIGNAL.try_take() {
+                let now = Instant::now();
+                if last_temp_publish
+                    .map(|t| now - t >= Duration::from_secs(30))
+                    .unwrap_or(true)
+                {
                     let mut buf = [0u8; 32];
-                    if let Some(s) = format_float(avg, 2, &mut buf) {
+                    if let Some(s) = format_float(celsius, 2, &mut buf) {
                         log::info!("Publishing temperature as {}C", s);
-
                         if session
                             .publish(Publication::new(TEMP_TOPIC, s.as_bytes()))
                             .await
@@ -374,28 +342,24 @@ pub async fn wifi_task(
                             continue 'reconnect;
                         }
                     }
-                    temp_sum = 0.0;
-                    temp_count = 0;
+                    last_temp_publish = Some(now);
                 }
-                if density_count > 0 {
-                    let avg = density_sum / density_count as f32;
-                    let mut buf = [0u8; 32];
-                    if let Some(s) = format_float(avg, 4, &mut buf) {
-                        log::info!("Publishing SG as {}", s);
+            }
 
-                        if session
-                            .publish(Publication::new(DENSITY_TOPIC, s.as_bytes()))
-                            .await
-                            .is_err()
-                        {
-                            Timer::after(Duration::from_secs(5)).await;
-                            continue 'reconnect;
-                        }
+            // Latest density — publish immediately on every new reading.
+            if let Some(sg) = crate::DENSITY_SIGNAL.try_take() {
+                let mut buf = [0u8; 32];
+                if let Some(s) = format_float(sg, 4, &mut buf) {
+                    log::info!("Publishing SG as {}", s);
+                    if session
+                        .publish(Publication::new(DENSITY_TOPIC, s.as_bytes()))
+                        .await
+                        .is_err()
+                    {
+                        Timer::after(Duration::from_secs(5)).await;
+                        continue 'reconnect;
                     }
-                    density_sum = 0.0;
-                    density_count = 0;
                 }
-                window_start = Instant::now();
             }
 
             // Publish any calibration ACKs received from the sensor.

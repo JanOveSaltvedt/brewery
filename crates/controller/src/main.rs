@@ -10,14 +10,17 @@ use can_tasks::{can_rx_task, can_tx_task, sensor_log_task};
 const SENSOR_NODE_ID: u8 =
     esp_config::esp_config_int!(u8, "BREWTECH_CONTROLLER_CONFIG_SENSOR_NODE_ID");
 use embassy_executor::Spawner;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, mutex::Mutex};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::Channel,
+    signal::Signal,
+};
 use esp_hal::{
     interrupt::software::SoftwareInterruptControl,
     timer::timg::TimerGroup,
     twai::{BaudRate, TwaiConfiguration, TwaiMode},
 };
 use log::LevelFilter;
-use static_cell::StaticCell;
 
 use esp_backtrace as _;
 
@@ -40,16 +43,10 @@ static CALIBRATION_CMD: Channel<CriticalSectionRawMutex, f32, 1> = Channel::new(
 // Calibration ACK (can_rx_task → wifi_task): decoded ACK type from sensor.
 static CALIBRATION_ACK: Channel<CriticalSectionRawMutex, u32, 1> = Channel::new();
 
-// ---------------------------------------------------------------------------
-// Shared sensor state (node 0 only) — updated by sensor_log_task, read by wifi_task.
-// ---------------------------------------------------------------------------
-
-pub struct SensorState {
-    pub temperature: Option<f32>,
-    pub density: Option<f32>,
-}
-
-static SENSOR_STATE: StaticCell<Mutex<CriticalSectionRawMutex, SensorState>> = StaticCell::new();
+// Latest sensor values (node 0 only) — signaled by sensor_log_task, consumed by wifi_task.
+// Signal overwrites any unread value, so wifi_task always sees the latest reading.
+pub static TEMP_SIGNAL: Signal<CriticalSectionRawMutex, f32> = Signal::new();
+pub static DENSITY_SIGNAL: Signal<CriticalSectionRawMutex, f32> = Signal::new();
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -67,11 +64,6 @@ async fn main(spawner: Spawner) {
     let timg0 = TimerGroup::new(p.TIMG0);
     esp_rtos::start(timg0.timer0, sw_int.software_interrupt0);
 
-    let sensor_state = SENSOR_STATE.init(Mutex::new(SensorState {
-        temperature: None,
-        density: None,
-    }));
-
     // GPIO0 = CRX (transceiver RX → MCU), GPIO1 = CTX (MCU TX → transceiver).
     let twai = TwaiConfiguration::new(
         p.TWAI0,
@@ -87,8 +79,8 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(can_rx_task(rx, READINGS.sender(), CALIBRATION_ACK.sender(), SENSOR_NODE_ID).unwrap());
     spawner.spawn(can_tx_task(tx, CALIBRATION_CMD.receiver(), SENSOR_NODE_ID).unwrap());
-    spawner.spawn(sensor_log_task(READINGS.receiver(), sensor_state, SENSOR_NODE_ID).unwrap());
-    spawner.spawn(wifi::wifi_task(p.WIFI, spawner, sensor_state, CALIBRATION_CMD.sender(), CALIBRATION_ACK.receiver()).unwrap());
+    spawner.spawn(sensor_log_task(READINGS.receiver(), SENSOR_NODE_ID).unwrap());
+    spawner.spawn(wifi::wifi_task(p.WIFI, spawner, CALIBRATION_CMD.sender(), CALIBRATION_ACK.receiver()).unwrap());
 
     log::info!("controller ready — listening for density sensors");
 }

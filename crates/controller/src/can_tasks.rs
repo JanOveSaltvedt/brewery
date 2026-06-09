@@ -3,7 +3,6 @@ use embassy_futures::select::{select, Either};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Receiver, Sender},
-    mutex::Mutex,
 };
 use embassy_time::{Duration, Ticker};
 use embedded_can::Frame as _;
@@ -12,7 +11,7 @@ use esp_hal::{
     Async,
 };
 
-use crate::{SensorReading, SensorState};
+use crate::SensorReading;
 
 #[embassy_executor::task]
 pub async fn can_rx_task(
@@ -128,34 +127,23 @@ pub async fn can_tx_task(
 #[embassy_executor::task]
 pub async fn sensor_log_task(
     receiver: embassy_sync::channel::Receiver<'static, CriticalSectionRawMutex, SensorReading, 16>,
-    state: &'static Mutex<CriticalSectionRawMutex, SensorState>,
     node_id: u8,
 ) {
     loop {
         let reading = receiver.receive().await;
         match reading {
-            SensorReading::Temperature {
-                node_id: id,
-                celsius,
-            } => {
+            SensorReading::Temperature { node_id: id, celsius } => {
                 log::info!("[density #{}] temp  = {:.2} °C", id, celsius);
+                if id == node_id {
+                    crate::TEMP_SIGNAL.signal(celsius);
+                }
             }
             SensorReading::Density { node_id: id, sg } => {
                 log::info!("[density #{}] sg    = {:.4}", id, sg);
+                if id == node_id {
+                    crate::DENSITY_SIGNAL.signal(sg);
+                }
             }
-        }
-        let mut s = state.lock().await;
-        match reading {
-            SensorReading::Temperature {
-                node_id: id,
-                celsius,
-            } if id == node_id => {
-                s.temperature = Some(celsius);
-            }
-            SensorReading::Density { node_id: id, sg } if id == node_id => {
-                s.density = Some(sg);
-            }
-            _ => {}
         }
     }
 }
