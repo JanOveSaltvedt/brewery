@@ -110,7 +110,7 @@ async fn sensor_rx_task(mut rx: TwaiRx<'static, Async>) {
 
 #[embassy_executor::task]
 async fn sensor_tx_task(mut tx: TwaiTx<'static, Async>) {
-    let mut ticker = Ticker::every(Duration::from_millis(5000));
+    let mut ticker = Ticker::every(Duration::from_millis(1000));
     loop {
         match select(ticker.next(), DENSITY_REQUESTED.wait()).await {
             Either::First(_) => {
