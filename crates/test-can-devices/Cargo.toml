@@ -4,6 +4,7 @@ cargo-features = ["per-package-target"]
 name           = "test-can-devices"
 version        = "0.1.0"
 edition        = "2021"
+license        = "MIT OR Apache-2.0"
 forced-target  = "riscv32imc-unknown-none-elf"
 
 [[bin]]
